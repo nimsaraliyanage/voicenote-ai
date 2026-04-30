@@ -3,8 +3,20 @@
   "name": "VoiceNote AI - Meeting Recorder",
   "version": "1.0.0",
   "description": "Record Zoom, Teams, Google Meet audio for VoiceNote AI transcription",
-  "permissions": ["activeTab", "tabCapture", "storage", "scripting"],
-  "host_permissions": ["https://app.zoom.us/*", "https://teams.microsoft.com/*", "https://meet.google.com/*"],
+  "permissions": ["activeTab", "tabCapture", "storage", "scripting", "offscreen"],
+  "host_permissions": [
+    "https://app.zoom.us/*",
+    "https://teams.microsoft.com/*",
+    "https://meet.google.com/*",
+    "https://voicenote-ai-sigma.vercel.app/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://voicenote-ai-sigma.vercel.app/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "action": {
     "default_popup": "popup.html",
     "default_icon": { "16": "icon16.png", "48": "icon48.png" }
