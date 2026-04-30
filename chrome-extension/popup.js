@@ -1,4 +1,4 @@
-const APP_URL = 'https://voicenote-ai.vercel.app' // Update after deploy
+const APP_URL = 'https://voicenote-ai-sigma.vercel.app'
 
 let recording = false
 let timerInterval = null
