@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "VoiceNote AI - Meeting Recorder",
+  "version": "1.0.0",
+  "description": "Record Zoom, Teams, Google Meet audio for VoiceNote AI transcription",
+  "permissions": ["activeTab", "tabCapture", "storage", "scripting"],
+  "host_permissions": ["https://app.zoom.us/*", "https://teams.microsoft.com/*", "https://meet.google.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": { "16": "icon16.png", "48": "icon48.png" }
+  },
+  "background": { "service_worker": "background.js" },
+  "icons": { "16": "icon16.png", "48": "icon48.png" }
+}
