@@ -1,7 +1,8 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import AudioRecorder from '@/components/AudioRecorder'
+import { Suspense } from 'react'
 
 const PLATFORMS = [
   { id: 'zoom', label: 'Zoom', icon: '🎥' },
@@ -10,8 +11,9 @@ const PLATFORMS = [
   { id: 'direct', label: 'Direct', icon: '🎙️' },
 ]
 
-export default function RecordPage() {
+function RecordPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [title, setTitle] = useState('')
   const [platform, setPlatform] = useState('direct')
   const [meetingId, setMeetingId] = useState<string | null>(null)
@@ -19,7 +21,58 @@ export default function RecordPage() {
   const [segments, setSegments] = useState<any[]>([])
   const [generatingNotes, setGeneratingNotes] = useState(false)
   const [error, setError] = useState('')
-  const [step, setStep] = useState<'setup' | 'recording' | 'review'>('setup')
+  const [step, setStep] = useState<'setup' | 'recording' | 'processing' | 'review'>('setup')
+
+  useEffect(() => {
+    const fromExtension = searchParams.get('from') === 'extension'
+    const extTitle = searchParams.get('title')
+    if (extTitle) setTitle(decodeURIComponent(extTitle))
+
+    const handler = async (e: MessageEvent) => {
+      if (e.data?.type !== 'VOICENOTE_EXTENSION_AUDIO') return
+
+      const audioDataUrl: string = e.data.data
+      const audioTitle: string = e.data.title || 'Meeting Recording'
+      setTitle(audioTitle)
+      setStep('processing')
+      setError('')
+
+      try {
+        // Create meeting
+        const meetRes = await fetch('/api/meetings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: audioTitle, platform: 'direct' }),
+        })
+        const meetData = await meetRes.json()
+        if (!meetRes.ok) { setError(meetData.error); setStep('setup'); return }
+        setMeetingId(meetData.id)
+
+        // Convert base64 to file
+        const fetchRes = await fetch(audioDataUrl)
+        const blob = await fetchRes.blob()
+        const file = new File([blob], 'recording.webm', { type: 'audio/webm' })
+
+        // Transcribe
+        const formData = new FormData()
+        formData.append('audio', file)
+        formData.append('meetingId', meetData.id)
+        const txRes = await fetch('/api/transcribe', { method: 'POST', body: formData })
+        const txData = await txRes.json()
+        if (!txRes.ok) { setError(txData.error); setStep('setup'); return }
+
+        setTranscript(txData.transcript || '')
+        setSegments(txData.segments || [])
+        setStep('review')
+      } catch (err: any) {
+        setError(err.message)
+        setStep('setup')
+      }
+    }
+
+    window.addEventListener('message', handler)
+    return () => window.removeEventListener('message', handler)
+  }, [searchParams])
 
   async function createMeeting() {
     const res = await fetch('/api/meetings', {
@@ -50,6 +103,17 @@ export default function RecordPage() {
     const data = await res.json()
     if (!res.ok) { setError(data.error); setGeneratingNotes(false); return }
     router.push(`/meetings/${meetingId}`)
+  }
+
+  if (step === 'processing') {
+    return (
+      <div className="max-w-lg mx-auto text-center py-20">
+        <div className="text-4xl mb-4 animate-pulse">🎙️</div>
+        <h1 className="text-xl font-semibold mb-2">{title}</h1>
+        <p className="text-gray-400 text-sm">Transcribing your recording... please wait</p>
+        {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
+      </div>
+    )
   }
 
   if (step === 'setup') {
@@ -149,5 +213,13 @@ export default function RecordPage() {
         </button>
       </div>
     </div>
+  )
+}
+
+export default function RecordPage() {
+  return (
+    <Suspense>
+      <RecordPageInner />
+    </Suspense>
   )
 }
